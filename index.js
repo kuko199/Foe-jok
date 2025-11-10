@@ -4,21 +4,22 @@ const cron = require('node-cron');
 
 // ENV variables
 const TOKEN = process.env.TOKEN;
-const GUILD_ID = process.env.GUILD_ID;        // ID serveru
-const CHANNEL_CB = process.env.CHANNEL_CB;    // kanál pro panel + otevření
+const GUILD_ID = process.env.GUILD_ID;               // ID serveru
+const CHANNEL_TIMER = process.env.CHANNEL_TIMER;     // kanál pro panel (časovač)
+const CHANNEL_CB = process.env.CHANNEL_CB;           // kanál pro otevřené boje
 
-if (!TOKEN || !GUILD_ID || !CHANNEL_CB) {
-    console.log("❌ Chybí environment proměnné! Nastav TOKEN, GUILD_ID a CHANNEL_CB.");
+if (!TOKEN || !GUILD_ID || !CHANNEL_TIMER || !CHANNEL_CB) {
+    console.log("❌ Chybí environment proměnné! Nastav TOKEN, GUILD_ID, CHANNEL_TIMER a CHANNEL_CB.");
     process.exit(1);
 }
 
 // Discord client
-const client = new Client({
+const client = new Client({ 
     intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.Guilds, 
+        GatewayIntentBits.GuildMessages, 
         GatewayIntentBits.MessageContent
-    ]
+    ] 
 });
 
 // uložené boje: čas -> pole hodnot
@@ -34,10 +35,10 @@ client.once('ready', async () => {
     console.log("✅ Bot je online, vytvářím autopanel...");
 
     const guild = client.guilds.cache.get(GUILD_ID);
-    const channel = guild.channels.cache.get(CHANNEL_CB);
+    const channel = guild.channels.cache.get(CHANNEL_TIMER);
 
     if (!channel) {
-        console.log("❌ Kanál nenalezen!");
+        console.log("❌ Kanál časovač (CHANNEL_TIMER) nenalezen!");
         return;
     }
 
@@ -76,16 +77,18 @@ client.on('messageCreate', async message => {
 // ----------------------------------------------------------------------
 cron.schedule('* * * * *', async () => {
     const now = new Date();
-    const hh = now.getHours().toString().padStart(2, "0");
-    const mm = now.getMinutes().toString().padStart(2, "0");
+    const hh = now.getHours().toString().padStart(2,"0");
+    const mm = now.getMinutes().toString().padStart(2,"0");
     const currentTime = `${hh}:${mm}`;
 
     const guild = client.guilds.cache.get(GUILD_ID);
-    const channel = guild.channels.cache.get(CHANNEL_CB);
+    const channel_cb = guild.channels.cache.get(CHANNEL_CB);
 
-    // otevření sektoru
+    // 🔴 otevření sektoru
     if (cb_map.has(currentTime)) {
-        channel.send(cb_map.get(currentTime).join(" | ") + " otevřeno");
+        if (channel_cb) {
+            channel_cb.send(cb_map.get(currentTime).join(" | ") + " **otevřeno**");
+        }
         cb_map.delete(currentTime);
     }
 
@@ -98,7 +101,7 @@ cron.schedule('* * * * *', async () => {
 async function updatePanel(guild) {
     if (!panelMessageId) return;
 
-    const channel = guild.channels.cache.get(CHANNEL_CB);
+    const channel = guild.channels.cache.get(CHANNEL_TIMER);
     if (!channel) return;
 
     try {
